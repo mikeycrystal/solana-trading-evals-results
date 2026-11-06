@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solana Trading Evals</title>
+<meta name="description" content="Frontier models write Solana trading bots in an hour; each bot is graded unchanged on 100 hidden sessions of a reactive Phoenix and OpenBook market.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f6f7f8;
+    --panel: #ffffff;
+    --line: #dfe3e7;
+    --grid: #eceff2;
+    --fg: #14181d;
+    --muted: #5e6873;
+    --ref: #8a94a0;
+    --band: #e9edf1;
+    --pop: #ffffff;
+    --m1: #0f8b8d;
+    --m2: #4c6fd1;
+    --m3: #d0743c;
+    --m4: #c99a2e;
+    --m5: #8a5cc2;
+    --serif: "Newsreader", Georgia, "Times New Roman", serif;
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --radius: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg: #0d1013;
+      --panel: #151a1f;
+      --line: #262d35;
+      --grid: #1d232a;
+      --fg: #e9edf1;
+      --muted: #98a3ae;
+      --ref: #7d8894;
+      --band: #1c2229;
+      --pop: #1b2127;
+      --m1: #3cc4c2;
+      --m2: #7f9cf0;
+      --m3: #ee9461;
+      --m4: #e5bd57;
+      --m5: #b48ce6;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); }
+  body { font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 36px; }
+  h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1.05; margin: 0; letter-spacing: -0.01em; }
+  .intro { color: var(--muted); max-width: 68ch; margin: 12px 0 0; }
+  section { display: grid; gap: 14px; }
+  section > h2 { font-family: var(--serif); font-weight: 400; font-size: 1.6rem; margin: 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: grid; gap: 10px; min-width: 0; }
+  .card h3 { font-size: 1rem; font-weight: 500; margin: 0; }
+  .note { font-size: 0.82rem; color: var(--muted); margin: 0; line-height: 1.5; max-width: 90ch; }
+  .chart { position: relative; min-width: 0; }
+  .chart svg { display: block; overflow: visible; }
+  .chart text { fill: var(--muted); font: 11px var(--sans); }
+  .chart .strong { fill: var(--fg); }
+  .chart .num { font-family: var(--mono); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.82rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .tip { position: absolute; pointer-events: none; background: var(--pop); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.14); padding: 6px 10px; font-size: 0.78rem; white-space: nowrap; z-index: 2; }
+  .tip .k { color: var(--muted); }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { text-align: left; font-weight: 500; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: 0.75rem; color: var(--muted); }
+  details { font-size: 0.85rem; color: var(--muted); }
+  summary { cursor: pointer; color: var(--fg); }
+  dl { display: grid; grid-template-columns: minmax(7rem, max-content) 1fr; gap: 8px 18px; margin: 12px 0 0; max-width: 80ch; }
+  dt { color: var(--fg); }
+  dd { margin: 0; }
+  code { font-family: var(--mono); color: var(--fg); }
+  .err { color: var(--muted); font-size: 0.85rem; }
+  :focus-visible { outline: 2px solid var(--m2); outline-offset: 2px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .chart svg { animation: rise .5s cubic-bezier(.2,.7,.2,1); }
+    @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>Solana Trading Evals</h1>
+    <p class="intro">Each agent writes a trading bot for a desk in an hour. The bot is graded unchanged on 100 hidden sessions of a reactive market running the real Phoenix v1 and OpenBook v2 programs on captured Solana mainnet state. A reward of 0 is doing nothing, and 1 matches a benchmark strategy the agent never sees.</p>
+  </header>
+
+  <div class="legend" id="legend"></div>
+
+  <section id="leaderboard">
+    <h2>Leaderboard</h2>
+    <div class="card">
+      <h3>Average reward across the 8 tasks</h3>
+      <p class="note">The mean of each model's eight task means. The dashed line is the reference strategy.</p>
+      <div class="chart" id="board" style="min-height: 230px"></div>
+    </div>
+  </section>
+
+  <section id="matrix">
+    <h2>Task by model</h2>
+    <div class="card">
+      <h3>Mean reward per task, 4 runs each</h3>
+      <p class="note">Darker cells capture more of the reference's edge. Outlined cells beat the reference on average. Hover a cell for the range across runs.</p>
+      <div class="chart" id="heat" style="min-height: 360px"></div>
+    </div>
+  </section>
+
+  <section id="runs">
+    <h2>Every graded run</h2>
+    <div class="card">
+      <h3>From doing nothing to the development ceilings</h3>
+      <p class="note">Each dot is one run's bot. The shaded band runs from doing nothing (0) to the reference (1). The diamond is <em>told</em>, the reference given the information it would otherwise have to infer; the bar is <em>hindsight</em>, the best of many told variants per session. Both were measured during development.</p>
+      <div class="chart" id="strips" style="min-height: 640px"></div>
+    </div>
+  </section>
+
+  <section id="consistency">
+    <h2>Consistency</h2>
+    <div class="card">
+      <h3>Run-to-run spread</h3>
+      <p class="note">The range between each model's lowest and highest run on each task, averaged over the 8 tasks. A smaller range means a more repeatable result.</p>
+      <div class="chart" id="spread" style="min-height: 230px"></div>
+    </div>
+  </section>
+
+  <section id="tasks">
+    <h2>The tasks</h2>
+    <div class="card">
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Task</th><th>Kind</th><th>Agent's job</th><th class="n">Best mean</th><th>Best model</th><th class="n">Told</th><th class="n">Hindsight</th></tr>
+          </thead>
+          <tbody id="tasktable"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <details>
+    <summary>How the score works</summary>
+    <dl>
+      <dt>Reward</dt>
+      <dd><code>max(0, Σ(U − U_nop) / Σ(U_ref − U_nop))</code>, summed over the hidden sessions. U is the session's utility: negative implementation shortfall in basis points for execution tasks, the desk's net result in USDC for trading tasks.</dd>
+      <dt>Reference</dt>
+      <dd>A benchmark strategy the grader runs on the same sessions. The agent never sees it. Matching it scores 1, and beating it scores above 1.</dd>
+      <dt>Voids</dt>
+      <dd>A hard mandate breach, a cheat-class call or a signer violation sets the reward to 0.</dd>
+      <dt>Told, hindsight</dt>
+      <dd>Development headroom figures measured on separate session sets, given for context, not targets. Cross-Venue Arbitrage reports hindsight only. Treasury Unwind and Treasury Accumulate show the midpoint of their reported hindsight range.</dd>
+      <dt>Runs</dt>
+      <dd>Each model ran 4 times per task with a 1-hour limit. The bot left at the end of the hour is the one graded.</dd>
+    </dl>
+  </details>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+(async () => {
+  const f2 = d3.format('.2f');
+  let scores, tasks, models;
+  try {
+    [scores, tasks, models] = await Promise.all(['data/scores.csv', 'data/tasks.csv', 'data/models.csv'].map((u) => d3.csv(u)));
+  } catch (e) {
+    document.querySelectorAll('.chart').forEach((el) => { el.innerHTML = '<p class="err">The results data did not load. Reload the page to try again.</p>'; });
+    return;
+  }
+  scores.forEach((s) => { s.reward = +s.reward; s.reward_18 = +s.reward_18; });
+  tasks.forEach((t) => { t.order = +t.order; t.told = t.told === '' ? null : +t.told; t.hindsight = +t.hindsight; });
+  models.forEach((m) => { m.order = +m.order; });
+  tasks.sort((a, b) => a.order - b.order);
+  models.sort((a, b) => a.order - b.order);
+  const css = getComputedStyle(document.documentElement);
+  const colorOf = () => new Map(models.map((m) => [m.model, css.getPropertyValue(`--m${m.order}`).trim()]));
+
+  const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const cell = [];
+  for (const t of tasks) for (const m of models) {
+    const v = scores.filter((s) => s.task === t.task && s.model === m.model).map((s) => s.reward);
+    if (!v.length) continue;
+    cell.push({ task: t.task, name: t.name, kind: t.kind, model: m.model, label: m.label, mean: mean(v), lo: d3.min(v), hi: d3.max(v), n: v.length });
+  }
+  const avg = models.map((m) => {
+    const c = cell.filter((r) => r.model === m.model);
+    return { model: m.model, label: m.label, avg: mean(c.map((r) => r.mean)), range: mean(c.map((r) => r.hi - r.lo)) };
+  }).sort((a, b) => b.avg - a.avg);
+  const best = new Map();
+  for (const r of cell) if (!best.has(r.task) || r.mean > best.get(r.task).mean) best.set(r.task, r);
+
+  const tipFor = (el) => {
+    const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; el.appendChild(tip);
+    return {
+      show(ev, lines) {
+        tip.replaceChildren(...lines.map((l, i) => { const d = document.createElement('div'); if (i === 0) d.className = 'k'; d.textContent = l; return d; }));
+        tip.hidden = false;
+        const box = el.getBoundingClientRect();
+        tip.style.left = Math.max(0, Math.min(box.width - tip.offsetWidth, ev.clientX - box.left + 12)) + 'px';
+        tip.style.top = Math.max(0, ev.clientY - box.top - tip.offsetHeight - 10) + 'px';
+      },
+      hide() { tip.hidden = true; },
+    };
+  };
+  const textWidth = (svg, strings) => {
+    const g = svg.append('g');
+    const w = d3.max(strings, (s) => g.append('text').text(s).node().getComputedTextLength());
+    g.remove();
+    return w;
+  };
+  const cleanAxis = (a) => { a.attr('font-size', null).attr('font-family', null); a.selectAll('line,path').attr('stroke', 'var(--ref)'); };
+
+  function legend() {
+    const col = colorOf();
+    document.getElementById('legend').replaceChildren(...models.map((m) => {
+      const s = document.createElement('span'); const i = document.createElement('i'); i.style.background = col.get(m.model);
+      s.append(i, document.createTextNode(m.label)); return s;
+    }));
+  }
+
+  function lanes(id, field, withRef) {
+    const el = document.getElementById(id); el.replaceChildren();
+    const col = colorOf();
+    const W = Math.max(280, el.clientWidth), laneH = 38, top = 22, bottom = 26, H = top + avg.length * laneH + bottom;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+    const left = textWidth(svg, avg.map((r) => r.label)) + 14;
+    const xmax = withRef ? Math.max(1.15, d3.max(avg, (r) => r[field]) * 1.08) : Math.max(0.6, d3.max(avg, (r) => r[field]) * 1.15);
+    const x = d3.scaleLinear([0, xmax], [left, W - 44]);
+    const y = (i) => top + i * laneH + laneH / 2;
+    const nt = Math.max(3, Math.floor(W / 90));
+    svg.append('g').selectAll('line').data(x.ticks(nt)).join('line').attr('x1', (d) => x(d)).attr('x2', (d) => x(d)).attr('y1', top - 6).attr('y2', H - bottom).attr('stroke', 'var(--grid)');
+    const ax = svg.append('g').attr('transform', `translate(0,${H - bottom + 6})`).call(d3.axisBottom(x).ticks(nt).tickSize(0).tickFormat(d3.format('.2~f')));
+    ax.attr('font-size', null).attr('font-family', null).select('.domain').remove();
+    if (withRef) {
+      svg.append('line').attr('x1', x(1)).attr('x2', x(1)).attr('y1', top - 8).attr('y2', H - bottom).attr('stroke', 'var(--ref)').attr('stroke-dasharray', '4 3');
+      svg.append('text').attr('x', x(1)).attr('y', top - 11).attr('text-anchor', 'middle').text('reference');
+    }
+    const tip = tipFor(el);
+    avg.forEach((r, i) => {
+      svg.append('text').attr('class', 'strong').attr('x', 0).attr('y', y(i)).attr('dy', '0.35em').text(r.label);
+      svg.append('rect').attr('x', x(0)).attr('y', y(i) - 9).attr('height', 18).attr('rx', 3).attr('width', Math.max(1, x(r[field]) - x(0)))
+        .attr('fill', col.get(r.model)).attr('opacity', withRef && i === 0 ? 1 : 0.8);
+      svg.append('text').attr('class', 'strong num').attr('x', x(r[field]) + 6).attr('y', y(i)).attr('dy', '0.35em').text(f2(r[field]));
+      svg.append('rect').attr('x', left).attr('y', y(i) - laneH / 2).attr('width', W - left).attr('height', laneH).attr('fill', 'transparent')
+        .on('mousemove', (ev) => tip.show(ev, withRef ? [r.label, `Average ${f2(r.avg)}`] : [r.label, `Mean run range ${f2(r.range)}`])).on('mouseleave', tip.hide);
+    });
+  }
+
+  function heat() {
+    const el = document.getElementById('heat'); el.replaceChildren();
+    const col = colorOf();
+    const W = Math.max(300, el.clientWidth), narrow = W < 560;
+    const svg = d3.select(el).append('svg').attr('width', '100%');
+    const left = textWidth(svg, tasks.map((t) => t.name)) + 12;
+    const top = narrow ? 52 : 26, rowH = 38, cw = (W - left) / models.length, H = top + tasks.length * rowH + 4;
+    svg.attr('viewBox', `0 0 ${W} ${H}`);
+    const op = d3.scaleLinear([0, 1.25], [0.07, 0.62]).clamp(true);
+    const tip = tipFor(el);
+    models.forEach((m, j) => {
+      const t = svg.append('text').attr('class', 'strong').text(m.label);
+      if (narrow) t.attr('transform', `translate(${left + j * cw + cw / 2 - 4},${top - 8}) rotate(-35)`);
+      else t.attr('x', left + j * cw + cw / 2).attr('y', top - 10).attr('text-anchor', 'middle');
+    });
+    tasks.forEach((t, i) => {
+      svg.append('text').attr('class', 'strong').attr('x', 0).attr('y', top + i * rowH + rowH / 2).attr('dy', '0.35em').text(t.name);
+      models.forEach((m, j) => {
+        const r = cell.find((c) => c.task === t.task && c.model === m.model); if (!r) return;
+        const gx = left + j * cw + 2, gy = top + i * rowH + 2;
+        svg.append('rect').attr('x', gx).attr('y', gy).attr('width', cw - 4).attr('height', rowH - 4).attr('rx', 4)
+          .attr('fill', col.get(m.model)).attr('fill-opacity', op(r.mean))
+          .attr('stroke', r.mean > 1 ? 'var(--fg)' : 'none').attr('stroke-width', 1.5)
+          .on('mousemove', (ev) => tip.show(ev, [`${t.name} · ${m.label}`, `Mean ${f2(r.mean)} over ${r.n} runs`, `Runs ${f2(r.lo)} to ${f2(r.hi)}`])).on('mouseleave', tip.hide);
+        svg.append('text').attr('class', 'strong num').attr('x', gx + (cw - 4) / 2).attr('y', gy + (rowH - 4) / 2).attr('dy', '0.35em')
+          .attr('text-anchor', 'middle').attr('pointer-events', 'none').attr('font-weight', r.mean > 1 ? 600 : 400).text(f2(r.mean));
+      });
+    });
+  }
+
+  function strips() {
+    const el = document.getElementById('strips'); el.replaceChildren();
+    const col = colorOf();
+    const W = Math.max(300, el.clientWidth), XMAX = 1.5;
+    const left = 6, right = 40, head = 22, sub = 9, rowH = head + models.length * sub + 20, axisH = 34;
+    const H = tasks.length * rowH + axisH;
+    const x = d3.scaleLinear([0, XMAX], [left, W - right]);
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+    const tip = tipFor(el);
+    tasks.forEach((t, i) => {
+      const y0 = i * rowH, py = y0 + head + 4, ph = models.length * sub, cy = py + ph / 2;
+      const g = svg.append('g');
+      const nm = g.append('text').attr('class', 'strong').attr('x', left).attr('y', y0 + 12).text(t.name);
+      g.append('text').attr('x', left + nm.node().getComputedTextLength() + 10).attr('y', y0 + 12).text(t.kind.toLowerCase());
+      g.append('rect').attr('x', x(0)).attr('y', py - 3).attr('width', x(1) - x(0)).attr('height', ph + 6).attr('rx', 3).attr('fill', 'var(--band)');
+      g.append('line').attr('x1', x(1)).attr('x2', x(1)).attr('y1', py - 6).attr('y2', py + ph + 6).attr('stroke', 'var(--ref)').attr('stroke-dasharray', '4 3');
+      if (t.told != null) {
+        g.append('path').attr('d', d3.symbol(d3.symbolDiamond, 54)()).attr('transform', `translate(${x(Math.min(t.told, XMAX))},${cy})`)
+          .attr('fill', 'none').attr('stroke', 'var(--fg)').attr('stroke-width', 1.4);
+      }
+      const hx = x(Math.min(t.hindsight, XMAX));
+      g.append('line').attr('x1', hx).attr('x2', hx).attr('y1', py - 4).attr('y2', py + ph + 4).attr('stroke', 'var(--fg)').attr('stroke-width', 2);
+      g.append('text').attr('class', 'num').attr('x', hx).attr('y', py - 8).attr('text-anchor', 'middle').text(t.hindsight > XMAX ? `${f2(t.hindsight)} ›` : f2(t.hindsight));
+      models.forEach((m, j) => {
+        scores.filter((s) => s.task === t.task && s.model === m.model).forEach((s) => {
+          g.append('circle').attr('cx', x(Math.min(s.reward, XMAX))).attr('cy', py + j * sub + sub / 2).attr('r', 4)
+            .attr('fill', col.get(m.model)).attr('fill-opacity', 0.88).attr('stroke', 'var(--panel)').attr('stroke-width', 1)
+            .on('mousemove', (ev) => tip.show(ev, [`${t.name} · ${m.label} · run ${s.run}`, `Reward ${f2(s.reward)}`])).on('mouseleave', tip.hide);
+        });
+      });
+    });
+    const ay = tasks.length * rowH + 4;
+    const ax = svg.append('g').attr('transform', `translate(0,${ay})`).call(d3.axisBottom(x).tickValues([0, 0.25, 0.5, 0.75, 1, 1.25, 1.5]).tickSize(4).tickFormat(d3.format('.2~f')));
+    cleanAxis(ax);
+    svg.append('text').attr('x', x(0)).attr('y', ay + 30).text('do nothing');
+    svg.append('text').attr('x', x(1)).attr('y', ay + 30).attr('text-anchor', 'middle').text('reference');
+  }
+
+  function table() {
+    document.getElementById('tasktable').replaceChildren(...tasks.map((t) => {
+      const tr = document.createElement('tr'); const b = best.get(t.task);
+      const vals = [[t.name], [t.kind, 'pill'], [t.job], [b ? f2(b.mean) : '', 'n'], [b ? b.label : ''], [t.told == null ? '—' : f2(t.told), 'n'], [f2(t.hindsight), 'n']];
+      vals.forEach(([v, cls]) => {
+        const td = document.createElement('td');
+        if (cls === 'pill') { const p = document.createElement('span'); p.className = 'pill'; p.textContent = v; td.appendChild(p); }
+        else { if (cls) td.className = cls; td.textContent = v; }
+        tr.appendChild(td);
+      });
+      return tr;
+    }));
+  }
+
+  const drawAll = () => { legend(); lanes('board', 'avg', true); heat(); strips(); lanes('spread', 'range', false); };
+  table(); drawAll();
+  let w = window.innerWidth, timer;
+  window.addEventListener('resize', () => { if (window.innerWidth === w) return; w = window.innerWidth; clearTimeout(timer); timer = setTimeout(drawAll, 150); });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawAll);
+})();
+</script>
+</body>
+</html>

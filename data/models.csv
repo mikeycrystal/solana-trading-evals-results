@@ -1,0 +1,6 @@
+model,label,lab,order
+gpt-6-astra,GPT-6 Astra,OpenAI,1
+gpt-6.1-sol,GPT-6.1 Sol,OpenAI,2
+claude-opus-5-5,Opus 5.5,Anthropic,3
+claude-sonnet-5-5,Sonnet 5.5,Anthropic,4
+grok-4.7,Grok 4.7,xAI,5
